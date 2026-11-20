@@ -1,0 +1,33 @@
+name: expressivity
+
+services:
+  expressivity:
+    build:
+      context: .
+      args:
+        # "smallwebrtc" or "daily" (see README.md). Changing it needs --build.
+        VITE_TRANSPORT: ${TRANSPORT:-smallwebrtc}
+    image: expressivity-local:latest
+    init: true
+    restart: unless-stopped
+    ports:
+      # Only reachable from this machine. The demo has no authentication.
+      - "127.0.0.1:9940:9940"
+      # The WebRTC audio (UDP), which goes straight between the browser and the bot.
+      - "${WEBRTC_HOST_IP:-127.0.0.1}:40000-40099:40000-40099/udp"
+    sysctls:
+      # Keeps the bot's UDP ports inside the range published above.
+      net.ipv4.ip_local_port_range: "40000 40099"
+    environment:
+      # The address the browser is told to send audio to: where the UDP ports above are published.
+      WEBRTC_ADVERTISE_IP: ${WEBRTC_HOST_IP:-127.0.0.1}
+      # Only used when TRANSPORT=daily.
+      DAILY_API_KEY: ${DAILY_API_KEY:-}
+      # Optional STUN/TURN servers for smallwebrtc, e.g. stun:stun.l.google.com:19302
+      PIPECAT_ICE_SERVERS: ${PIPECAT_ICE_SERVERS:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9940/api/status', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
